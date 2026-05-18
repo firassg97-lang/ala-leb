@@ -43,6 +43,16 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // If products haven't loaded yet (user was null at initState time),
+    // retry once auth is available.
+    if (_products.isEmpty && !_isLoadingProducts && _offset == 0) {
+      _loadProducts();
+    }
+  }
+
+  @override
   void dispose() {
     _scrollCtrl.dispose();
     super.dispose();
@@ -91,7 +101,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
   Future<void> _loadProducts() async {
     final user = ref.read(currentUserProvider);
-    if (user == null) return;
+    if (user == null) {
+      // Auth not ready yet — reset loading flag so we don't hang on shimmer
+      if (mounted) setState(() => _isLoadingProducts = false);
+      return;
+    }
     if (_isLoadingProducts && _offset > 0) return;
     setState(() => _isLoadingProducts = true);
     try {
@@ -225,7 +239,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(authNotifierProvider).valueOrNull;
+    final authState = ref.watch(authNotifierProvider);
     final crossAxis = AppSizes.gridCrossAxisCount(context);
 
     return Scaffold(
@@ -250,11 +264,15 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ],
           ),
 
-          // ── Profile info ─────────────────────────────────────────────────
-          if (profile != null)
-            SliverToBoxAdapter(
-              child: _buildProfileInfo(context, profile),
+          // ── Profile info (with shimmer while loading) ─────────────────────
+          SliverToBoxAdapter(
+            child: authState.when(
+              loading: () => _buildProfileShimmer(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (p) =>
+                  p != null ? _buildProfileInfo(context, p) : const SizedBox.shrink(),
             ),
+          ),
 
           // ── Products shimmer ─────────────────────────────────────────────
           if (_isLoadingProducts && _products.isEmpty)
@@ -358,6 +376,29 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   )
                 : const SizedBox(height: 80),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Profile header shimmer (shown while auth state loads) ──────────────────
+
+  Widget _buildProfileShimmer() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Avatar circle
+          ShimmerBox(width: 90, height: 90, borderRadius: 45),
+          const SizedBox(height: 16),
+          // Name
+          ShimmerBox(width: 160, height: 20, borderRadius: 8),
+          const SizedBox(height: 10),
+          // Phone row
+          ShimmerBox(width: 120, height: 14, borderRadius: 6),
+          const SizedBox(height: 20),
+          const Divider(height: 1),
         ],
       ),
     );
