@@ -74,6 +74,12 @@
 	<string>Lebesty utilise le microphone pour les messages vocaux</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Lebesty utilise votre position pour localiser votre boutique</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Lebesty utilise le réseau local uniquement pour les outils de développement Flutter</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartVmService._tcp</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
