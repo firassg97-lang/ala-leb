@@ -1,0 +1,4 @@
+-keep class com.facebook.** { *; }
+-keep interface com.facebook.** { *; }
+-dontwarn com.facebook.infer.annotation.**
+-dontwarn com.facebook.ads.**

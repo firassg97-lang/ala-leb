@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../constants/app_colors.dart';
-import '../constants/app_strings.dart';
-import '../providers/auth_provider.dart';
-import '../providers/locale_provider.dart';
-import '../providers/theme_provider.dart';
+import '../app_providers.dart';
+import '../l10n.dart';
+
+const _privacyPolicyUrl =
+    'https://lebesty.netlify.app/lebesty-politique-confidentialite';
+const _contactEmail = 'lebesty21@gmail.com';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -14,8 +16,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
-    final isDark = themeMode == ThemeMode.dark;
-    final locale = ref.watch(localeProvider);
+    final isDark    = themeMode == ThemeMode.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -23,41 +24,39 @@ class SettingsScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Paramètres'),
+        title: Text(context.tr('settings')),
       ),
       body: ListView(
         children: [
-          _SectionHeader('Compte'),
+          _SectionHeader(context.tr('account')),
           _SettingsTile(
             icon: Icons.edit_outlined,
-            title: 'Modifier le profil',
+            title: context.tr('edit_profile'),
             onTap: () => context.push('/edit-profile'),
           ),
           _SettingsTile(
             icon: Icons.lock_outlined,
-            title: 'Changer le mot de passe',
+            title: context.tr('change_password'),
             onTap: () async {
-              final profile =
-                  ref.read(authNotifierProvider).valueOrNull;
-              if (profile == null) return;
+              final email = Supabase.instance.client.auth.currentUser?.email;
+              if (email == null) return;
               try {
-                await ref
-                    .read(supabaseClientProvider)
-                    .auth
-                    .resetPasswordForEmail(profile.email);
+                await Supabase.instance.client.auth.resetPasswordForEmail(email);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Email envoyé'),
-                        backgroundColor: successColor),
+                    SnackBar(
+                      content: Text(context.tr('email_sent')),
+                      backgroundColor: successColor,
+                    ),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                        content: Text(e.toString()),
-                        backgroundColor: errorColor),
+                      content: Text(e.toString()),
+                      backgroundColor: errorColor,
+                    ),
                   );
                 }
               }
@@ -65,7 +64,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           const Divider(),
-          _SectionHeader('Apparence'),
+          _SectionHeader(context.tr('appearance')),
           SwitchListTile(
             secondary: Container(
               width: 44,
@@ -81,36 +80,27 @@ class SettingsScreen extends ConsumerWidget {
                 color: isDark ? Colors.indigo : Colors.orange,
               ),
             ),
-            title: const Text('Mode sombre'),
+            title: Text(context.tr('dark_mode')),
             value: isDark,
             onChanged: (v) => ref.read(themeProvider.notifier).setDark(v),
             activeColor: primaryBlue,
           ),
 
           const Divider(),
-          _SectionHeader('Langue'),
-          _LanguageTile(
-            current: locale.languageCode,
-            onSelect: (lang) =>
-                ref.read(localeProvider.notifier).setLocale(lang),
-          ),
-
-          const Divider(),
-          _SectionHeader('Informations'),
+          _SectionHeader(context.tr('information')),
           _SettingsTile(
             icon: Icons.privacy_tip_outlined,
-            title: 'Politique de confidentialité',
+            title: context.tr('privacy_policy'),
             onTap: () async {
-              final uri = Uri.parse(AppStrings.privacyPolicyUrl);
+              final uri = Uri.parse(_privacyPolicyUrl);
               if (await canLaunchUrl(uri)) await launchUrl(uri);
             },
           ),
           _SettingsTile(
             icon: Icons.email_outlined,
-            title: 'Contact: ${AppStrings.contactEmail}',
+            title: '${context.tr('contact_label')}: $_contactEmail',
             onTap: () async {
-              final uri =
-                  Uri.parse('mailto:${AppStrings.contactEmail}');
+              final uri = Uri.parse('mailto:$_contactEmail');
               if (await canLaunchUrl(uri)) await launchUrl(uri);
             },
           ),
@@ -118,62 +108,76 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
           _SettingsTile(
             icon: Icons.logout,
-            title: 'Se déconnecter',
+            title: context.tr('logout'),
             color: errorColor,
             onTap: () async {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (_) => AlertDialog(
-                  title: const Text('Se déconnecter ?'),
+                  title: Text(context.tr('logout_confirm_title')),
                   actions: [
                     TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Annuler')),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(context.tr('cancel')),
+                    ),
                     TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Déconnecter',
-                            style: TextStyle(color: errorColor))),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(
+                        context.tr('logout_btn'),
+                        style: const TextStyle(color: errorColor),
+                      ),
+                    ),
                   ],
                 ),
               );
               if (confirm == true && context.mounted) {
-                await ref.read(authNotifierProvider.notifier).signOut();
-                context.go('/login');
+                await Supabase.instance.client.auth.signOut();
+                if (context.mounted) context.go('/login');
               }
             },
           ),
           _SettingsTile(
             icon: Icons.delete_forever_outlined,
-            title: 'Supprimer le compte',
+            title: context.tr('delete_account'),
             color: errorColor,
             onTap: () async {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (_) => AlertDialog(
-                  title: const Text('Supprimer le compte ?'),
-                  content: const Text(
-                      'Cette action est irréversible. Toutes vos données seront supprimées.'),
+                  title: Text(context.tr('delete_account_title')),
+                  content: Text(context.tr('delete_account_warning')),
                   actions: [
                     TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Annuler')),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(context.tr('cancel')),
+                    ),
                     TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Supprimer',
-                            style: TextStyle(color: errorColor))),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(
+                        context.tr('delete'),
+                        style: const TextStyle(color: errorColor),
+                      ),
+                    ),
                   ],
                 ),
               );
               if (confirm == true && context.mounted) {
                 try {
-                  await ref.read(authNotifierProvider.notifier).deleteAccount();
+                  final user = Supabase.instance.client.auth.currentUser;
+                  if (user == null) return;
+                  // Ø­Ø°Ù ÙƒØ§Ù…Ù„: Ø¯Ø§Ù„Ø© SECURITY DEFINER ØªØ­Ø°Ù auth.users
+                  // ÙˆÙƒÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ØªØªØ¨Ø¹Ù‡Ø§ Ø¹Ø¨Ø± FK cascades (Ù…ØªØ·Ù„Ø¨ Apple 5.1.1)
+                  await Supabase.instance.client.rpc('delete_account');
+                  await Supabase.instance.client.auth.signOut();
                   if (context.mounted) context.go('/login');
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                          content: Text('Erreur: ${e.toString()}'),
-                          backgroundColor: errorColor),
+                        content: Text(
+                            '${context.tr('error_prefix')}: ${e.toString()}'),
+                        backgroundColor: errorColor,
+                      ),
                     );
                   }
                 }
@@ -187,6 +191,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
+// â”€â”€ Section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader(this.title);
@@ -198,14 +203,16 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: const TextStyle(
-            color: textSecondary,
-            fontWeight: FontWeight.w600,
-            fontSize: 12),
+          color: textSecondary,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
       ),
     );
   }
 }
 
+// â”€â”€ Generic settings tile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -237,79 +244,6 @@ class _SettingsTile extends StatelessWidget {
           ? null
           : const Icon(Icons.chevron_right, color: textSecondary),
       onTap: onTap,
-    );
-  }
-}
-
-class _LanguageTile extends StatelessWidget {
-  final String current;
-  final void Function(String) onSelect;
-
-  const _LanguageTile({required this.current, required this.onSelect});
-
-  // Fix 8: removed 'tn' locale
-  static const _languages = [
-    {'code': 'ar', 'label': '🇸🇦 العربية'},
-    {'code': 'en', 'label': '🇬🇧 English'},
-    {'code': 'fr', 'label': '🇫🇷 Français'},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final currentLabel = _languages
-        .firstWhere((l) => l['code'] == current,
-            orElse: () => _languages[2])['label']!;
-    return ListTile(
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: primaryBlue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(Icons.language, color: primaryBlue),
-      ),
-      title: const Text('Langue'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(currentLabel, style: const TextStyle(color: textSecondary)),
-          const Icon(Icons.chevron_right, color: textSecondary),
-        ],
-      ),
-      onTap: () => showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Choisir la langue',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              ..._languages.map(
-                (l) => ListTile(
-                  title: Text(l['label']!),
-                  trailing: current == l['code']
-                      ? const Icon(Icons.check, color: primaryBlue)
-                      : null,
-                  onTap: () {
-                    onSelect(l['code']!);
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

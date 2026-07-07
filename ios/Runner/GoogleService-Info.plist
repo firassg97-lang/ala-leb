@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>269819262841-r4ikn3tms6mipg9oolhtspgh7balu6oi.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.269819262841-r4ikn3tms6mipg9oolhtspgh7balu6oi</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>269819262841-0f53mbdh80nhtark8tcdba08cudeq71m.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDkhkbyM-R304pH7G1jmHIb7vniqiE1Hes</string>
+	<key>GCM_SENDER_ID</key>
+	<string>269819262841</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.lebesty.lebesty</string>
+	<key>PROJECT_ID</key>
+	<string>lebesty</string>
+	<key>STORAGE_BUCKET</key>
+	<string>lebesty.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:269819262841:ios:0c65862d15f1e39d4e21a8</string>
+</dict>
+</plist>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "269819262841",
+    "project_id": "lebesty",
+    "storage_bucket": "lebesty.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:269819262841:android:23ab52ed41ed1a3f4e21a8",
+        "android_client_info": {
+          "package_name": "com.lebesty.lebesty"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYHLIzvwnhcjs78AQSUa3kss4accpb08Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

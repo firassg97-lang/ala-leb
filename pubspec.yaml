@@ -31,6 +31,7 @@ dependencies:
   # Images
   image_picker: ^1.1.2
   flutter_image_compress: ^2.3.0
+  nsfw_detector_flutter: ^2.0.0
 
   # Fonts
   google_fonts: ^6.2.1
@@ -50,12 +51,13 @@ dependencies:
   just_audio: ^0.9.42
 
   # Ads
-  google_mobile_ads: ^5.3.0
+  google_mobile_ads: ^6.0.0
+  app_tracking_transparency: ^2.0.7
 
   # Notifications
   firebase_core: ^3.13.0
-  firebase_messaging: ^15.2.5
   flutter_local_notifications: ^18.0.1
+  onesignal_flutter: ^5.2.5
 
   # Auth
   sign_in_with_apple: ^6.1.3
@@ -67,6 +69,7 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # Utils
+  crypto: ^3.0.6
   url_launcher: ^6.3.1
   permission_handler: ^11.3.1
   connectivity_plus: ^6.1.1
@@ -84,10 +87,18 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   build_runner: ^2.4.14
   riverpod_generator: ^2.6.2
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/lebesty_logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  min_sdk_android: 21
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/images/
-    - assets/translations/

@@ -1,13 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
+}
+
+val keyProps = Properties()
+val keyPropsFile = rootProject.file("key.properties")
+if (keyPropsFile.exists()) {
+    keyPropsFile.inputStream().use { keyProps.load(it) }
 }
 
 android {
     namespace = "com.lebesty.lebesty"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -21,21 +29,31 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.lebesty.lebesty"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keyProps["keyAlias"] as String
+            keyPassword = keyProps["keyPassword"] as String
+            storeFile = file(keyProps["storeFile"] as String)
+            storePassword = keyProps["storePassword"] as String
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
@@ -46,4 +64,7 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // 6.21.0.0 مطلوب للتوافق مع Google Mobile Ads SDK 24.x الذي تسحبه حزمة
+    // google_mobile_ads 6.x — الإصدار 6.18.0.0 مبني على GMA 23.3.0 فقط.
+    implementation("com.google.ads.mediation:facebook:6.21.0.0")
 }
