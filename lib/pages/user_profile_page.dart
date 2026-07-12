@@ -1027,14 +1027,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
           if (profile.phone != null && profile.phone!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.phone_outlined, size: 14, color: textSecondary),
-                const SizedBox(width: 4),
-                Text(profile.phone!, style: const TextStyle(fontSize: 14, color: textSecondary)),
-              ],
+            GestureDetector(
+              onTap: () => launchUrl(Uri(scheme: 'tel', path: profile.phone!),
+                  mode: LaunchMode.externalApplication),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.phone_outlined, size: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(profile.phone!, style: TextStyle(fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurface)),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 10),

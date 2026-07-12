@@ -162,13 +162,18 @@ class GradientButton extends StatelessWidget {
             width: 20, height: 20,
             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
           )
-              : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[icon!, const SizedBox(width: 8)],
-              Text(label, style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
-            ],
+              // Safety net: shrinks the label only if it would overflow the
+              // fixed-height button; renders identically when it fits.
+              : FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[icon!, const SizedBox(width: 8)],
+                Text(label, style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+              ],
+            ),
           ),
         ),
       ),

@@ -258,7 +258,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   }
 
   Widget _buildTitle(BuildContext context) {
-    return Padding(
+    // On iOS the sheet's title bar sits close to the top screen edge, inside
+    // the zone reserved for Control Center / system gestures, which makes the
+    // back and clear buttons need a pinpoint tap. Push the bar down on iOS
+    // only; the modal bottom sheet route strips the top MediaQuery padding,
+    // so SafeArea alone would be a no-op here. Android is left untouched.
+    final title = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
         children: [
@@ -281,6 +286,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           ),
         ],
       ),
+    );
+    if (Theme.of(context).platform != TargetPlatform.iOS) return title;
+    return SafeArea(
+      top: true, bottom: false, left: false, right: false,
+      minimum: const EdgeInsets.only(top: 16),
+      child: title,
     );
   }
 
@@ -366,12 +377,22 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                         border: Border.all(color: isSelected ? primaryBlue : const Color(0xFFE0E0E0), width: isSelected ? 2 : 1),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(cat.emoji, style: const TextStyle(fontSize: 28)),
-                        const SizedBox(height: 4),
-                        Text(AppL10n.catLabel(context, cat.labelFr, cat.labelAr), textAlign: TextAlign.center, maxLines: 2,
-                            style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal, color: isSelected ? primaryBlue : null)),
-                      ]),
+                      // Safety net: scales the content down only if it would
+                      // overflow the fixed card; renders identically when it fits.
+                      child: LayoutBuilder(builder: (context, constraints) {
+                        return FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [
+                              Text(cat.emoji, style: const TextStyle(fontSize: 28)),
+                              const SizedBox(height: 4),
+                              Text(AppL10n.catLabel(context, cat.labelFr, cat.labelAr), textAlign: TextAlign.center, maxLines: 2,
+                                  style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal, color: isSelected ? primaryBlue : null)),
+                            ]),
+                          ),
+                        );
+                      }),
                     ),
                     if (showCheck)
                       Positioned(
@@ -483,7 +504,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                     ),
                   ),
                   child: Center(
-                    child: Text(item.emoji, style: const TextStyle(fontSize: 28)),
+                    // Safety net: shrinks the emoji only if it would overflow
+                    // the fixed circle; renders identically when it fits.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(item.emoji, style: const TextStyle(fontSize: 28)),
+                    ),
                   ),
                 ),
                 if (isSelected)
@@ -590,12 +616,15 @@ Widget _buildTypeTabWidget(String label, String value, String current, void Func
           color: isSelected ? primaryBlue : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Text(label, textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.white : textSecondary,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              fontSize: 13,
-            )),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(label, textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isSelected ? Colors.white : textSecondary,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontSize: 13,
+              )),
+        ),
       ),
     ),
   );
@@ -1370,7 +1399,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildLogo(BuildContext context) {
-    return Row(children: [
+    // Safety net: scales the logo row down only if the app bar title area is
+    // narrower than its content; renders identically when it fits.
+    return FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
       Container(
         width: 36, height: 36,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: brandGradient),
@@ -1385,6 +1418,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         shaderCallback: (bounds) => brandGradient.createShader(bounds),
         child: const Text('Lebesty', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
       ),
-    ]);
+    ]));
   }
 }

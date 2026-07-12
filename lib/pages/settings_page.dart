@@ -10,6 +10,9 @@ const _privacyPolicyUrl =
     'https://lebesty.netlify.app/lebesty-politique-confidentialite';
 const _contactEmail = 'lebesty21@gmail.com';
 
+// مخفي مؤقتًا — أعده إلى true لإظهار "Changer le mot de passe"
+const bool _showChangePassword = false;
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -34,7 +37,8 @@ class SettingsScreen extends ConsumerWidget {
             title: context.tr('edit_profile'),
             onTap: () => context.push('/edit-profile'),
           ),
-          _SettingsTile(
+          if (_showChangePassword)
+            _SettingsTile(
             icon: Icons.lock_outlined,
             title: context.tr('change_password'),
             onTap: () async {

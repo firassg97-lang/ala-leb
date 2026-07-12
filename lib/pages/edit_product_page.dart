@@ -271,16 +271,21 @@ class GradientButton extends StatelessWidget {
             child: CircularProgressIndicator(
                 strokeWidth: 2, color: Colors.white),
           )
-              : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[icon!, const SizedBox(width: 8)],
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16)),
-            ],
+              // Safety net: shrinks the label only if it would overflow the
+              // fixed-height button; renders identically when it fits.
+              : FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[icon!, const SizedBox(width: 8)],
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16)),
+              ],
+            ),
           ),
         ),
       ),
@@ -713,14 +718,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 color: isSelected ? primaryBlue : const Color(0xFFE0E0E0)),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: isSelected ? primaryBlue : textSecondary,
-              fontWeight:
-              isSelected ? FontWeight.w600 : FontWeight.normal,
+          // Safety net: shrinks the label only if it would overflow the chip.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? primaryBlue : textSecondary,
+                fontWeight:
+                isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
             ),
           ),
         ),

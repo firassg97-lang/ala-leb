@@ -122,6 +122,17 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<MessageModel> _messages = [];
   bool _isLoading = true;
 
+  // ─── Block state ───────────────────────────────────────────────────────────
+  bool _iBlockedThem = false;
+  bool _theyBlockedMe = false;
+  bool _blockStatusLoaded = false;
+
+  bool get _isBlocked => _iBlockedThem || _theyBlockedMe;
+
+  String get _blockedMessage => _theyBlockedMe
+      ? 'Cet utilisateur vous a bloqué.'
+      : 'Vous avez bloqué cet utilisateur.';
+
   // ─── Voice recording state ─────────────────────────────────────────────────
   bool _isRecording = false;
   bool _isSendingVoice = false;
@@ -137,6 +148,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _load();
     _subscribeRealtime();
     _resetUnread();
+    _checkBlockStatus();
   }
 
   @override
@@ -148,16 +160,137 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  // ─── Block logic ───────────────────────────────────────────────────────────
+
+  /// يرجّع true إذا كان هناك حظر بين الطرفين (في أي اتجاه) ويحدّث الـ state.
+  Future<bool> _checkBlockStatus() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return false;
+    try {
+      final rows = await Supabase.instance.client
+          .from('blocked_users')
+          .select('blocker_id')
+          .or('and(blocker_id.eq.${user.id},blocked_id.eq.${widget.otherUserId}),'
+              'and(blocker_id.eq.${widget.otherUserId},blocked_id.eq.${user.id})');
+      if (!mounted) return false;
+      setState(() {
+        _iBlockedThem =
+            (rows as List).any((r) => r['blocker_id'] == user.id);
+        _theyBlockedMe = rows.any((r) => r['blocker_id'] == widget.otherUserId);
+        _blockStatusLoaded = true;
+      });
+      return _isBlocked;
+    } catch (_) {
+      if (mounted) setState(() => _blockStatusLoaded = true);
+      return _isBlocked;
+    }
+  }
+
+  Future<void> _confirmBlock() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bloquer cet utilisateur ?'),
+        content: Text(
+            'Vous ne pourrez plus échanger de messages avec ${widget.otherUserName}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Bloquer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await Supabase.instance.client.from('blocked_users').insert({
+        'blocker_id': user.id,
+        'blocked_id': widget.otherUserId,
+      });
+      if (_isRecording) await _stopRecording(send: false);
+      if (mounted) setState(() => _iBlockedThem = true);
+    } on PostgrestException catch (e) {
+      // 23505 = unique violation → محظور مسبقًا
+      if (e.code == '23505') {
+        if (mounted) setState(() => _iBlockedThem = true);
+      } else {
+        _showError();
+      }
+    } catch (_) {
+      _showError();
+    }
+  }
+
+  Future<void> _confirmUnblock() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Débloquer cet utilisateur ?'),
+        content: Text(
+            'Vous pourrez à nouveau échanger des messages avec ${widget.otherUserName}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Débloquer',
+                style: TextStyle(color: primaryBlue)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await Supabase.instance.client
+          .from('blocked_users')
+          .delete()
+          .eq('blocker_id', user.id)
+          .eq('blocked_id', widget.otherUserId);
+      if (mounted) setState(() => _iBlockedThem = false);
+    } catch (_) {
+      _showError();
+    }
+  }
+
+  void _showError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Une erreur est survenue. Réessayez.')),
+    );
+  }
+
+  void _showBlockedSnack() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(_blockedMessage)),
+    );
+  }
+
   Future<void> _resetUnread() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
     try {
       await Supabase.instance.client.rpc(
-        'reset_unread_count',
-        params: {'conv_id': widget.conversationId},
+        'mark_conversation_read',
+        params: {'conv_id': widget.conversationId, 'user_id': user.id},
       );
     } catch (_) {}
   }
 
   void _subscribeRealtime() {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     Supabase.instance.client
         .channel('chat_${widget.conversationId}')
         .onPostgresChanges(
@@ -177,6 +310,28 @@ class _ChatScreenState extends State<ChatScreen> {
           if (_messages.any((m) => m.id == msg.id)) return;
           setState(() => _messages.add(msg));
           _scrollToBottom();
+          // المحادثة مفتوحة — علّم رسالة الطرف الآخر كمقروءة فوراً
+          if (msg.senderId != currentUserId) _resetUnread();
+        }
+      },
+    )
+    // تحديث is_read — يظهر "Vu" فوراً عند المرسل حين يقرأ الطرف الآخر
+        .onPostgresChanges(
+      event: PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'conversation_id',
+        value: widget.conversationId,
+      ),
+      callback: (payload) {
+        if (!mounted) return;
+        if (payload.newRecord.isNotEmpty) {
+          final updated = MessageModel.fromJson(
+              payload.newRecord.cast<String, dynamic>());
+          final idx = _messages.indexWhere((m) => m.id == updated.id);
+          if (idx != -1) setState(() => _messages[idx] = updated);
         }
       },
     )
@@ -198,10 +353,21 @@ class _ChatScreenState extends State<ChatScreen> {
             .toList());
         _isLoading = false;
       });
-      _scrollToBottom();
+      _jumpToBottom();
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// قفزة فورية (بدون أنيميشن) لآخر رسالة عند فتح الصفحة.
+  /// تُعاد لعدة frames لأن maxScrollExtent يتغيّر بعد أول layout
+  /// (صور، فقاعات متعددة الأسطر...).
+  void _jumpToBottom({int frames = 4}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
+      if (frames > 1) _jumpToBottom(frames: frames - 1);
+    });
   }
 
   void _scrollToBottom() {
@@ -219,6 +385,10 @@ class _ChatScreenState extends State<ChatScreen> {
   // ─── Send text ─────────────────────────────────────────────────────────────
 
   Future<void> _sendText() async {
+    if (_isBlocked) {
+      _showBlockedSnack();
+      return;
+    }
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
     _msgCtrl.clear();
@@ -237,6 +407,15 @@ class _ChatScreenState extends State<ChatScreen> {
       createdAt: DateTime.now(),
     )));
     _scrollToBottom();
+
+    // تحقق حي من قاعدة البيانات قبل الإرسال الفعلي (الحظر قد يحدث بعد فتح الصفحة)
+    if (await _checkBlockStatus()) {
+      if (mounted) {
+        setState(() => _messages.removeWhere((m) => m.id == tempId));
+        _showBlockedSnack();
+      }
+      return;
+    }
 
     try {
       final result = await supabase.from('messages').insert({
@@ -261,6 +440,10 @@ class _ChatScreenState extends State<ChatScreen> {
   // ─── Send image ────────────────────────────────────────────────────────────
 
   Future<void> _sendImage() async {
+    if (_isBlocked) {
+      _showBlockedSnack();
+      return;
+    }
     final source = await _showImageSourcePicker();
     if (source == null || !mounted) return;
     final file = await _pickAndCompress(source: source);
@@ -280,6 +463,14 @@ class _ChatScreenState extends State<ChatScreen> {
       createdAt: DateTime.now(),
     )));
     _scrollToBottom();
+
+    if (await _checkBlockStatus()) {
+      if (mounted) {
+        setState(() => _messages.removeWhere((m) => m.id == tempId));
+        _showBlockedSnack();
+      }
+      return;
+    }
 
     try {
       final path = '${const Uuid().v4()}.jpg';
@@ -360,6 +551,10 @@ class _ChatScreenState extends State<ChatScreen> {
   // ─── Voice — tap to start, tap to stop ────────────────────────────────────
 
   Future<void> _toggleRecording() async {
+    if (_isBlocked) {
+      _showBlockedSnack();
+      return;
+    }
     if (_isRecording) {
       await _stopRecording(send: true);
     } else {
@@ -400,6 +595,12 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!send || path == null) {
       // حذف التسجيل
       _waveformBars.clear();
+      return;
+    }
+
+    if (await _checkBlockStatus()) {
+      _waveformBars.clear();
+      _showBlockedSnack();
       return;
     }
 
@@ -470,12 +671,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push('/user/${widget.otherUserId}'),
-          ),
-        ],
+        actions: [_buildBlockAction()],
       ),
       body: Column(
         children: [
@@ -494,10 +690,16 @@ class _ChatScreenState extends State<ChatScreen> {
               itemBuilder: (_, i) {
                 final msg = _messages[i];
                 final isMine = msg.senderId == currentUserId;
+                // "Vu" يظهر تحت آخر رسالة أرسلتها أنا إذا قرأها الطرف الآخر
+                final isLastMine = isMine &&
+                    !_messages
+                        .skip(i + 1)
+                        .any((m) => m.senderId == currentUserId);
                 return _MessageBubble(
                   message: msg,
                   isMine: isMine,
                   index: i,
+                  showSeen: isLastMine && msg.isRead,
                 );
               },
             ),
@@ -508,9 +710,52 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ─── Block action button ───────────────────────────────────────────────────
+
+  Widget _buildBlockAction() {
+    // لا نعرض شيئًا قبل تحميل حالة الحظر
+    if (!_blockStatusLoaded) return const SizedBox.shrink();
+    // الطرف المحظور لا يرى أي خيار حظر/إلغاء حظر
+    if (_theyBlockedMe && !_iBlockedThem) return const SizedBox.shrink();
+    return IconButton(
+      icon: Icon(
+        _iBlockedThem ? Icons.lock_open : Icons.block,
+        color: _iBlockedThem ? primaryBlue : Colors.red,
+      ),
+      tooltip: _iBlockedThem ? 'Débloquer' : 'Bloquer',
+      onPressed: _iBlockedThem ? _confirmUnblock : _confirmBlock,
+    );
+  }
+
   // ─── Input bar ─────────────────────────────────────────────────────────────
 
   Widget _buildInputBar() {
+    // محادثة محظورة — شريط معطّل بدل حقل الكتابة
+    if (_blockStatusLoaded && _isBlocked) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          border: Border(top: BorderSide(color: dividerColor, width: 0.5)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.block, color: textSecondary, size: 18),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  _blockedMessage,
+                  style: const TextStyle(color: textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     // أثناء التسجيل — اعرض شريط التسجيل بالكامل
     if (_isRecording) {
       return _buildRecordingBar();
@@ -710,9 +955,13 @@ class _MessageBubble extends StatelessWidget {
   final MessageModel message;
   final bool isMine;
   final int index;
+  final bool showSeen;
 
   const _MessageBubble(
-      {required this.message, required this.isMine, required this.index});
+      {required this.message,
+      required this.isMine,
+      required this.index,
+      this.showSeen = false});
 
   @override
   Widget build(BuildContext context) {
@@ -769,10 +1018,24 @@ class _MessageBubble extends StatelessWidget {
                 if (isMine) ...[
                   const SizedBox(width: 3),
                   Icon(
-                    isTemp ? Icons.access_time : Icons.done,
+                    isTemp
+                        ? Icons.access_time
+                        : message.isRead
+                        ? Icons.done_all
+                        : Icons.done,
                     size: 11,
-                    color: textSecondary,
+                    color: !isTemp && message.isRead
+                        ? primaryBlue
+                        : textSecondary,
                   ),
+                  if (showSeen) ...[
+                    const SizedBox(width: 3),
+                    const Text('Vu',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: primaryBlue,
+                            fontWeight: FontWeight.w600)),
+                  ],
                 ],
               ],
             ),
@@ -930,7 +1193,11 @@ class _VoicePlayerState extends State<_VoicePlayer> {
     final total = _duration.inSeconds > 0 ? _duration.inSeconds : 1;
     final progress = (_position.inSeconds / total).clamp(0.0, 1.0);
     final color = widget.isMine ? Colors.white : primaryBlue;
-    return SizedBox(
+    // Safety net: scales the fixed-width player down only if the bubble is
+    // narrower than 200px; renders identically when it fits.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: SizedBox(
       width: 200,
       child: Row(
         children: [
@@ -966,6 +1233,7 @@ class _VoicePlayerState extends State<_VoicePlayer> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

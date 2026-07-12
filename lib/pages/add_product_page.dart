@@ -175,12 +175,17 @@ class GradientButton extends StatelessWidget {
         child: Center(
           child: isLoading
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[icon!, const SizedBox(width: 8)],
-              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
-            ],
+              // Safety net: shrinks the label only if it would overflow the
+              // fixed-height button; renders identically when it fits.
+              : FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[icon!, const SizedBox(width: 8)],
+                Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+              ],
+            ),
           ),
         ),
       ),
@@ -592,8 +597,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
             color: isSelected ? primaryBlue : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(label, textAlign: TextAlign.center,
-              style: TextStyle(color: isSelected ? Colors.white : textSecondary, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+          // Safety net: shrinks the label only if it would overflow the tab.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, textAlign: TextAlign.center,
+                style: TextStyle(color: isSelected ? Colors.white : textSecondary, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+          ),
         ),
       ),
     );
@@ -670,8 +679,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
             border: Border.all(color: isSelected ? primaryBlue : const Color(0xFFE0E0E0)),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(label, textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: isSelected ? primaryBlue : textSecondary, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+          // Safety net: shrinks the label only if it would overflow the chip.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: isSelected ? primaryBlue : textSecondary, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+          ),
         ),
       ),
     );

@@ -441,8 +441,17 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Container(
               width: 110,
               margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                children: [
+              // Safety net: scales the content down only if it would overflow
+              // the fixed card; renders identically when it fits.
+              child: LayoutBuilder(builder: (context, constraints) {
+                return FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                   CircleAvatar(
                     radius: 40,
                     backgroundImage: avatar != null
@@ -469,8 +478,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     size: 12,
                     showCount: true,
                   ),
-                ],
-              ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             ).animate().fadeIn(delay: Duration(milliseconds: i * 60)),
           );
         },

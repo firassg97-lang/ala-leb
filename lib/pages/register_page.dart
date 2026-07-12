@@ -38,6 +38,9 @@ const LinearGradient brandGradientVertical = LinearGradient(
   end: Alignment.bottomCenter,
 );
 
+// مخفي مؤقتًا — أعده إلى true لإظهار خيار "Email / Mot de passe" في التسجيل
+const bool _showEmailAuthOption = false;
+
 const List<String> tunisiaWilayas = [
   'Tunis', 'Ariana', 'Ben Arous', 'Manouba', 'Nabeul', 'Zaghouan',
   'Bizerte', 'Béja', 'Jendouba', 'Le Kef', 'Siliana', 'Sousse',
@@ -165,16 +168,21 @@ class GradientButton extends StatelessWidget {
             width: 20, height: 20,
             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
           )
-              : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[icon!, const SizedBox(width: 8)],
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16)),
-            ],
+              // Safety net: shrinks the label only if it would overflow the
+              // fixed-height button; renders identically when it fits.
+              : FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[icon!, const SizedBox(width: 8)],
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16)),
+              ],
+            ),
           ),
         ),
       ),
@@ -265,7 +273,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   int _currentPage = 0;
   bool _isLoading = false;
 
-  String _authMethod = 'email';
+  // الافتراضي عند إخفاء خيار Email: Apple على iOS وGoogle على غيره
+  String _authMethod = _showEmailAuthOption
+      ? 'email'
+      : (Platform.isIOS ? 'apple' : 'google');
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
@@ -642,10 +653,12 @@ class _AuthMethodStep extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: textSecondary))
               .animate().fadeIn(delay: 100.ms),
           const SizedBox(height: 32),
-          _MethodCard(icon: Icons.email_outlined, title: 'Email / Mot de passe',
-              subtitle: 'Inscription classique', isSelected: selected == 'email',
-              onTap: () => onSelect('email')).animate().fadeIn(delay: 150.ms).slideX(begin: -0.1),
-          const SizedBox(height: 12),
+          if (_showEmailAuthOption) ...[
+            _MethodCard(icon: Icons.email_outlined, title: 'Email / Mot de passe',
+                subtitle: 'Inscription classique', isSelected: selected == 'email',
+                onTap: () => onSelect('email')).animate().fadeIn(delay: 150.ms).slideX(begin: -0.1),
+            const SizedBox(height: 12),
+          ],
           _MethodCard(icon: Icons.apple, title: 'Continuer avec Apple',
               subtitle: 'Connexion rapide avec votre Apple ID', isSelected: selected == 'apple',
               onTap: () => onSelect('apple')).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
@@ -772,8 +785,13 @@ class _WilayaStep extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
-                      child: Text(wilaya, textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isSelected ? Colors.white : null)),
+                      // Safety net: shrinks the name only if it would
+                      // overflow the fixed grid cell.
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(wilaya, textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isSelected ? Colors.white : null)),
+                      ),
                     ),
                   ),
                 );
@@ -836,15 +854,25 @@ class _TypeCard extends StatelessWidget {
           border: Border.all(color: isSelected ? primaryBlue : const Color(0xFFE0E0E0), width: isSelected ? 2 : 1),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 52)),
-            const SizedBox(height: 12),
-            Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isSelected ? primaryBlue : null)),
-            if (isSelected) ...[const SizedBox(height: 8), const Icon(Icons.check_circle, color: primaryBlue, size: 20)],
-          ],
-        ),
+        // Safety net: scales the content down only if it would overflow the
+        // fixed card; renders identically when it fits.
+        child: LayoutBuilder(builder: (context, constraints) {
+          return FittedBox(
+            fit: BoxFit.scaleDown,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 52)),
+                  const SizedBox(height: 12),
+                  Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isSelected ? primaryBlue : null)),
+                  if (isSelected) ...[const SizedBox(height: 8), const Icon(Icons.check_circle, color: primaryBlue, size: 20)],
+                ],
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -856,8 +884,9 @@ class _ShopTypeStep extends StatelessWidget {
   const _ShopTypeStep({required this.selected, required this.onSelect});
 
   static const _types = [
-    {'value': 'clothing', 'icon': '👔', 'label': 'Vente de vêtements'},
-    {'value': 'superfripe', 'icon': '🛍️', 'label': 'Super Fripe'},
+    // الأيقونتان متبادلتان عمدًا (طلب تصميمي) — القيم المخزنة لم تتغير
+    {'value': 'clothing', 'icon': '🛍️', 'label': 'Vente de vêtements'},
+    {'value': 'superfripe', 'icon': '👔', 'label': 'Super Fripe'},
     {'value': 'rental', 'icon': '👗', 'label': 'Location de robes et costumes'},
     {'value': 'accessories', 'icon': '💍', 'label': 'Accessoires'},
   ];

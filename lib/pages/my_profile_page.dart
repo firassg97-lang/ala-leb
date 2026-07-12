@@ -739,6 +739,17 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     }
   }
 
+  // ── Pull-to-refresh: إعادة جلب البروفايل والمنتجات من Supabase ──
+  Future<void> _refresh() async {
+    setState(() {
+      _products.clear();
+      _productIds.clear();
+      _offset = 0;
+      _hasMore = true;
+    });
+    await Future.wait([_loadAuth(), _loadProducts()]);
+  }
+
   Future<void> _loadProducts() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
@@ -967,8 +978,13 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
     // ── التعديل 1: الكل في CustomScrollView واحد — الهيدر يسكرول مع المحتوى ──
     return Scaffold(
-      body: CustomScrollView(
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        color: primaryBlue,
+        child: CustomScrollView(
         controller: _scrollCtrl,
+        // ضروري ليعمل السحب للتحديث حتى عندما يكون المحتوى أقصر من الشاشة
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           // ── AppBar مع زر الإعدادات ──
           SliverAppBar(
@@ -1061,6 +1077,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 : const SizedBox(height: 80),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1145,11 +1162,17 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         // ── Phone ──
         if (hasPhone) ...[
           const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.phone_outlined, size: 16, color: textSecondary),
-            const SizedBox(width: 6),
-            Text(phone, style: const TextStyle(fontSize: 15, color: textPrimary)),
-          ]),
+          GestureDetector(
+            onTap: () => launchUrl(Uri(scheme: 'tel', path: phone),
+                mode: LaunchMode.externalApplication),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.phone_outlined, size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(phone, style: TextStyle(fontSize: 15,
+                  color: Theme.of(context).colorScheme.onSurface)),
+            ]),
+          ),
         ],
 
         // ── Voir sur la carte ──

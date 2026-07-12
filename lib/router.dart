@@ -52,14 +52,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     try {
       final data = await Supabase.instance.client
           .from('conversations')
-          .select('unread_count, last_message_sender_id')
+          .select('participant1_id, unread_count_p1, unread_count_p2')
           .or('participant1_id.eq.${user.id},participant2_id.eq.${user.id}');
 
-      // لا تحسب المحادثات التي آخر رسالة فيها أرسلها المستخدم نفسه
+      // اجمع عدّاد المستخدم الحالي فقط (p1 أو p2 حسب موقعه في المحادثة)
       final total = (data as List).fold<int>(0, (sum, row) {
-        final lastSender = row['last_message_sender_id'] as String?;
-        if (lastSender == user.id) return sum;
-        return sum + (row['unread_count'] as int? ?? 0);
+        final count = row['participant1_id'] == user.id
+            ? row['unread_count_p1']
+            : row['unread_count_p2'];
+        return sum + (count as int? ?? 0);
       });
 
       if (mounted) ref.read(unreadCountProvider.notifier).state = total;
@@ -70,36 +71,26 @@ class _AppShellState extends ConsumerState<AppShell> {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
+    // أي تغيّر (رسالة جديدة أو تحديث عدّادات) → أعد القراءة من قاعدة البيانات
+    // فتبقى الشارة متزامنة دائماً مع الحالة الفعلية بدون تراكم وهمي
     Supabase.instance.client
         .channel('unread_messages_${user.id}')
-    // رسالة جديدة — زد فقط إذا ليست مني
         .onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: 'public',
       table: 'messages',
       callback: (payload) {
+        if (!mounted) return;
         final senderId = payload.newRecord['sender_id'] as String?;
-        if (senderId != null && senderId != user.id) {
-          if (mounted) {
-            final current = ref.read(unreadCountProvider);
-            ref.read(unreadCountProvider.notifier).state = current + 1;
-          }
-        }
+        if (senderId != null && senderId != user.id) _loadUnreadCount();
       },
     )
-    // conversations تحدّثت — صفّر فقط إذا unread_count = 0
         .onPostgresChanges(
       event: PostgresChangeEvent.update,
       schema: 'public',
       table: 'conversations',
-      callback: (payload) {
-        if (!mounted) return;
-        final newUnread =
-            payload.newRecord['unread_count'] as int? ?? 0;
-        // فقط صفّر — لا تزد أبداً من هنا
-        if (newUnread == 0) {
-          ref.read(unreadCountProvider.notifier).state = 0;
-        }
+      callback: (_) {
+        if (mounted) _loadUnreadCount();
       },
     )
         .subscribe();

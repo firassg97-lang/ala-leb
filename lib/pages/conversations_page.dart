@@ -86,6 +86,11 @@ class ConversationModel {
       other = OtherParticipant.fromJson(otherJson as Map<String, dynamic>);
     }
 
+    // العدّاد الخاص بالمستخدم الحالي فقط (p1 أو p2 حسب موقعه في المحادثة)
+    final myUnread = currentUserId == p1
+        ? json['unread_count_p1'] as int? ?? 0
+        : json['unread_count_p2'] as int? ?? 0;
+
     return ConversationModel(
       id: json['id'] as String,
       participant1Id: p1,
@@ -95,7 +100,7 @@ class ConversationModel {
       lastMessageAt: json['last_message_at'] != null
           ? DateTime.parse(json['last_message_at'] as String)
           : null,
-      unreadCount: json['unread_count'] as int? ?? 0,
+      unreadCount: myUnread,
       otherUser: other,
     );
   }
@@ -252,11 +257,8 @@ class _ConversationTile extends StatelessWidget {
     final other = conversation.otherUser;
     final lastMsgAt = conversation.lastMessageAt;
 
-    // FIX: لا تعرض badge إذا آخر رسالة أرسلها المستخدم الحالي
-    final iSentLastMessage =
-        conversation.lastMessageSenderId == currentUserId;
-    final hasUnread =
-        conversation.unreadCount > 0 && !iSentLastMessage;
+    // العدّاد أصبح خاصاً بالمستخدم الحالي — لا حاجة لحيلة آخر مرسل
+    final hasUnread = conversation.unreadCount > 0;
 
     return ListTile(
       contentPadding:
@@ -305,7 +307,9 @@ class _ConversationTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: hasUnread ? textPrimary : textSecondary,
+          color: hasUnread
+              ? Theme.of(context).colorScheme.onSurface
+              : textSecondary,
           fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
         ),
       ),

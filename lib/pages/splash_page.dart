@@ -100,12 +100,17 @@ class _SplashScreenState extends State<SplashScreen> {
                           gradient: brandGradient,
                         ),
                         child: const Center(
-                          child: Text(
-                            'LB',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
+                          // Safety net: shrinks the fallback text only if it
+                          // would overflow the fixed logo box.
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'LB',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),

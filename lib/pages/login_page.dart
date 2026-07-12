@@ -161,16 +161,21 @@ class GradientButton extends StatelessWidget {
             child: CircularProgressIndicator(
                 strokeWidth: 2, color: Colors.white),
           )
-              : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[icon!, const SizedBox(width: 8)],
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16)),
-            ],
+              // Safety net: shrinks the label only if it would overflow the
+              // fixed-height button; renders identically when it fits.
+              : FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[icon!, const SizedBox(width: 8)],
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16)),
+              ],
+            ),
           ),
         ),
       ),
@@ -426,12 +431,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 80,
                           height: 80,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Text(
-                            'LB',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold),
+                          errorBuilder: (_, __, ___) => const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'LB',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       ),
