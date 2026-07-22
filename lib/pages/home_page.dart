@@ -1030,6 +1030,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   // Discovered the first time pagination hits end-of-list. null = unknown.
   int? _olderTotalCount;
 
+  // Ids of users the current user has blocked. Their products are excluded
+  // from the feed. Refreshed on every full load (init / pull-to-refresh).
+  final Set<String> _blockedUserIds = {};
+
   bool _isLoading = false;
   bool _initialLoaded = false;
 
@@ -1091,6 +1095,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return cutoff;
   }
 
+  // Loads the ids blocked by the current user so the feed query can exclude
+  // their products. One-way, per-user: only affects what THIS user sees.
+  Future<void> _loadBlockedIds() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    _blockedUserIds.clear();
+    if (user == null) return;
+    try {
+      final rows = await Supabase.instance.client
+          .from('blocked_users')
+          .select('blocked_id')
+          .eq('blocker_id', user.id);
+      _blockedUserIds.addAll((rows as List).map((r) => r['blocked_id'] as String));
+    } catch (e) {
+      if (kDebugMode) debugPrint('blocked ids load error: $e');
+    }
+  }
+
   Future<int> _fetchStartPosition() async {
     try {
       final row = await Supabase.instance.client
@@ -1124,6 +1145,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
     if (newerOrEqualTo != null) {
       query = query.gte('published_at', newerOrEqualTo.toIso8601String());
+    }
+    if (_blockedUserIds.isNotEmpty) {
+      query = query.not('user_id', 'in', '(${_blockedUserIds.join(',')})');
     }
     if (_filter.originalOnly) query = query.eq('is_original', true);
     if (_filter.wilayas.isNotEmpty) {
@@ -1201,6 +1225,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _todayCutoffUtc = _computeTodayCutoffUtc();
 
     try {
+      // Must run before the queries below, since they build on the blocked set.
+      await _loadBlockedIds();
       final results = await Future.wait<dynamic>([
         _fetchStartPosition(),
         _fetchTodayProducts(_todayCutoffUtc!),

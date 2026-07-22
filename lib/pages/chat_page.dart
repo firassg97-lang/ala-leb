@@ -187,12 +187,15 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _confirmBlock() async {
+    final name = widget.otherUserName.trim().isNotEmpty
+        ? widget.otherUserName.trim()
+        : 'cet utilisateur';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Bloquer cet utilisateur ?'),
+        title: Text('Bloquer $name ?'),
         content: Text(
-            'Vous ne pourrez plus échanger de messages avec ${widget.otherUserName}.'),
+            "Vous ne pourrez plus échanger de messages avec $name, et ses articles n'apparaîtront plus sur votre page d'accueil."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

@@ -1,0 +1,62 @@
+# Codemagic CI/CD configuration for Lebesty (iOS)
+# ---------------------------------------------------------------------------
+# NOTE: This file was newly created (the project had no codemagic.yaml).
+# The signing / publishing values below are standard Codemagic placeholders —
+# review the sections marked "CONFIGURE" against your Codemagic team settings
+# before relying on the full build. The privacy-manifest fix step is complete
+# and runs automatically right after `pod install`.
+# ---------------------------------------------------------------------------
+workflows:
+  ios-release:
+    name: iOS Release
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      # CONFIGURE: create these groups in Codemagic → Environment variables,
+      # or remove them if you sign/publish through the Codemagic UI instead.
+      groups:
+        - app_store_credentials   # APP_STORE_CONNECT_* + certificate variables
+      vars:
+        BUNDLE_ID: "com.lebesty.lebesty"
+        APP_STORE_APPLE_ID: 6787686457
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+
+      - name: Install CocoaPods dependencies
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
+      # ---------------------------------------------------------------------
+      # Fix Apple ITMS-91064: force NSPrivacyTracking=true in any Pod's
+      # privacy manifest that declares tracking domains. Runs immediately
+      # after pod install so the repaired manifests are baked into the build.
+      # ---------------------------------------------------------------------
+      - name: Fix Pod privacy manifests (ITMS-91064)
+        script: |
+          chmod +x ios/scripts/fix_privacy_manifests.sh
+          ios/scripts/fix_privacy_manifests.sh ios/Pods
+
+      - name: Flutter build ipa
+        script: |
+          # CONFIGURE: set --build-number as your team prefers. $BUILD_NUMBER is
+          # provided by Codemagic and increments per build; adjust the base name
+          # to match your App Store Connect version.
+          flutter build ipa --release \
+            --build-name=1.0.0 \
+            --build-number=${BUILD_NUMBER:-5} \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      # CONFIGURE: connect your App Store Connect integration in Codemagic
+      # (Teams → Integrations) and reference it here, or remove this block.
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

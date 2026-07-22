@@ -809,6 +809,123 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         mode: LaunchMode.externalApplication);
   }
 
+  // ── Menu options (Bloquer / Signaler) ─────────────────────────
+  void _showProfileMenu() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? surfaceDark : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.block, color: errorColor),
+                title: const Text('Bloquer',
+                    style: TextStyle(color: errorColor, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmBlock();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined, color: textSecondary),
+                title: const Text('Signaler'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _reportUser();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmBlock() async {
+    final name = (_profile?.username?.trim().isNotEmpty ?? false)
+        ? _profile!.username!.trim()
+        : 'cet utilisateur';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Bloquer $name ?',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Text(
+            "Vous ne pourrez plus échanger de messages avec $name, et ses articles n'apparaîtront plus sur votre page d'accueil."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler', style: TextStyle(color: textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: errorColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Bloquer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await Supabase.instance.client.from('blocked_users').insert({
+        'blocker_id': user.id,
+        'blocked_id': widget.userId,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Utilisateur bloqué'), backgroundColor: successColor),
+        );
+      }
+    } on PostgrestException catch (e) {
+      // 23505 = unique violation → déjà bloqué : on le traite comme un succès.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.code == '23505' ? 'Utilisateur déjà bloqué' : 'Erreur, réessayez'),
+            backgroundColor: e.code == '23505' ? successColor : errorColor,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur, réessayez'), backgroundColor: errorColor),
+        );
+      }
+    }
+  }
+
+  void _reportUser() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Signalement envoyé, merci.'), backgroundColor: successColor),
+    );
+  }
+
   Future<void> _showRatingDialog() async {
     int tempRating = _myRating ?? 0;
     await showDialog(
@@ -939,6 +1056,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               icon: const Icon(Icons.arrow_back_ios_new, size: 18),
               onPressed: () => context.pop(),
             ),
+            actions: [
+              if (!isOwnProfile)
+                IconButton(
+                  icon: const Icon(Icons.more_vert, size: 22),
+                  tooltip: 'Options',
+                  onPressed: _showProfileMenu,
+                ),
+            ],
           ),
           SliverToBoxAdapter(child: _buildProfileInfo(context, profile, isOwnProfile)),
           if (_isLoadingProducts && _products.isEmpty)

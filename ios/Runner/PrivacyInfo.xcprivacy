@@ -5,7 +5,13 @@
 	<key>NSPrivacyTracking</key>
 	<true/>
 	<key>NSPrivacyTrackingDomains</key>
-	<array/>
+	<array>
+		<string>googleadservices.com</string>
+		<string>google-analytics.com</string>
+		<string>doubleclick.net</string>
+		<string>app-measurement.com</string>
+		<string>facebook.com</string>
+	</array>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
 		<dict>

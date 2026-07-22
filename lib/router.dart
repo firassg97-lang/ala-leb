@@ -16,6 +16,7 @@ import 'pages/my_profile_page.dart';
 import 'pages/user_profile_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/edit_profile_page.dart';
+import 'pages/blocked_users_page.dart';
 import 'l10n.dart';
 
 const Color primaryBlue = Color(0xFF6BB8E8);
@@ -283,6 +284,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(path: '/edit-profile', builder: (_, __) => const EditProfileScreen()),
+      GoRoute(path: '/blocked-users', builder: (_, __) => const BlockedUsersScreen()),
     ],
   );
 });

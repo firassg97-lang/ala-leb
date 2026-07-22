@@ -37,6 +37,11 @@ class SettingsScreen extends ConsumerWidget {
             title: context.tr('edit_profile'),
             onTap: () => context.push('/edit-profile'),
           ),
+          _SettingsTile(
+            icon: Icons.block_outlined,
+            title: context.tr('blocked_users'),
+            onTap: () => context.push('/blocked-users'),
+          ),
           if (_showChangePassword)
             _SettingsTile(
             icon: Icons.lock_outlined,
