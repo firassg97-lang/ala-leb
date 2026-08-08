@@ -168,8 +168,8 @@ class GradientButton extends StatelessWidget {
             width: 20, height: 20,
             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
           )
-              // Safety net: shrinks the label only if it would overflow the
-              // fixed-height button; renders identically when it fits.
+          // Safety net: shrinks the label only if it would overflow the
+          // fixed-height button; renders identically when it fits.
               : FittedBox(
             fit: BoxFit.scaleDown,
             child: Row(
@@ -347,6 +347,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           idToken: idToken,
           accessToken: accessToken,
         );
+
+        // نفس منطق Apple: نعبّئ حقل "Nom complet" باسم Google كقيمة
+        // افتراضية قابلة للتعديل الكامل، دون إجبار المستخدم على شيء.
+        final googleDisplayName = googleUser.displayName;
+        if (googleDisplayName != null &&
+            googleDisplayName.trim().isNotEmpty &&
+            _nameCtrl.text.isEmpty) {
+          _nameCtrl.text = googleDisplayName.trim();
+        }
       } else if (Platform.isIOS) {
         // iOS: تدفق Apple الأصلي (نافذة النظام) — مطلوب لتجربة أفضل وموافقة Apple
         final rawNonce = Supabase.instance.client.auth.generateRawNonce();
@@ -370,6 +379,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           idToken: idToken,
           nonce: rawNonce,
         );
+
+        // Apple ترسل givenName/familyName مرة واحدة فقط، عند أول تسجيل دخول.
+        // نعبّئ بها حقل "Nom complet" كقيمة افتراضية قابلة للتعديل الكامل
+        // (المستخدم يبقى حراً في مسحها ووضع اسم محله بدلاً منها) —
+        // هذا يحل ملاحظة Apple بخصوص Guideline 4 دون تقييد المستخدم.
+        final givenName = credential.givenName;
+        final familyName = credential.familyName;
+        final appleFullName = [givenName, familyName]
+            .where((n) => n != null && n.trim().isNotEmpty)
+            .join(' ')
+            .trim();
+        if (appleFullName.isNotEmpty && _nameCtrl.text.isEmpty) {
+          _nameCtrl.text = appleFullName;
+        }
       } else {
         await Supabase.instance.client.auth.signInWithOAuth(
           provider,
