@@ -30,6 +30,8 @@
     	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>GIDClientID</key>
+	<string>204250890964-taq4nngateavp7k7a5nt6aoakho332pu.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
