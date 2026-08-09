@@ -686,6 +686,7 @@ class _AuthMethodStep extends StatelessWidget {
               subtitle: 'Connexion rapide avec votre Apple ID', isSelected: selected == 'apple',
               onTap: () => onSelect('apple')).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
           const SizedBox(height: 12),
+          if (!Platform.isIOS)
           _MethodCard(icon: Icons.g_mobiledata_rounded, title: 'Continuer avec Google',
               subtitle: 'Connexion rapide avec votre compte Google', isSelected: selected == 'google',
               onTap: () => onSelect('google')).animate().fadeIn(delay: 250.ms).slideX(begin: -0.1),

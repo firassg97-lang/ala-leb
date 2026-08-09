@@ -500,6 +500,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _isLoading ? null : _signInWithApple,
                 ).animate().fadeIn(delay: 350.ms),
                 const SizedBox(height: 12),
+                if (!Platform.isIOS)
                 _SocialButton(
                   label: 'Continuer avec Google',
                   icon: Icons.g_mobiledata_rounded,
