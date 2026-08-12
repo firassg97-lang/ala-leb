@@ -161,8 +161,8 @@ class GradientButton extends StatelessWidget {
             child: CircularProgressIndicator(
                 strokeWidth: 2, color: Colors.white),
           )
-              // Safety net: shrinks the label only if it would overflow the
-              // fixed-height button; renders identically when it fits.
+          // Safety net: shrinks the label only if it would overflow the
+          // fixed-height button; renders identically when it fits.
               : FittedBox(
             fit: BoxFit.scaleDown,
             child: Row(
@@ -309,6 +309,10 @@ class _LoginScreenState extends State<LoginScreen> {
         accessToken: accessToken,
       );
 
+      // نفس منطق Apple أدناه: نلتقط اسم Google (متاح في كل مرة، وليس فقط
+      // أول مرة) لتمريره لصفحة التسجيل وتعبئته تلقائياً هناك.
+      final googleDisplayName = googleUser.displayName?.trim() ?? '';
+
       if (!mounted) return;
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
@@ -319,7 +323,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (hasProfile) {
         context.go('/home');
       } else {
-        context.go('/register', extra: 'google');
+        context.go(
+          '/register',
+          extra: googleDisplayName.isNotEmpty
+              ? 'google|$googleDisplayName'
+              : 'google',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -338,6 +347,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // ─── Apple Sign-In ────────────────────────────────────────────────────
   Future<void> _signInWithApple() async {
     setState(() => _isLoading = true);
+    String appleFullName = '';
     try {
       if (Platform.isIOS) {
         // iOS: تدفق Apple الأصلي (نافذة النظام) — مطلوب لتجربة أفضل وموافقة Apple
@@ -362,6 +372,17 @@ class _LoginScreenState extends State<LoginScreen> {
           idToken: idToken,
           nonce: rawNonce,
         );
+
+        // Apple ترسل givenName/familyName مرة واحدة فقط، عند أول تسجيل دخول.
+        // نلتقطها هنا لتمريرها لصفحة التسجيل وتعبئتها تلقائياً هناك —
+        // نفس المنطق الموجود في register_page.dart، مطبّق على هذا المسار
+        // أيضاً (تسجيل الدخول من شاشة Login مباشرة).
+        final givenName = credential.givenName;
+        final familyName = credential.familyName;
+        appleFullName = [givenName, familyName]
+            .where((n) => n != null && n.trim().isNotEmpty)
+            .join(' ')
+            .trim();
       } else {
         await Supabase.instance.client.auth.signInWithOAuth(
           OAuthProvider.apple,
@@ -380,7 +401,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (hasProfile) {
         context.go('/home');
       } else {
-        context.go('/register', extra: 'apple');
+        context.go(
+          '/register',
+          extra: appleFullName.isNotEmpty ? 'apple|$appleFullName' : 'apple',
+        );
       }
     } on SignInWithAppleAuthorizationException catch (e) {
       // المستخدم ألغى النافذة — لا نعرض خطأ
@@ -501,11 +525,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ).animate().fadeIn(delay: 350.ms),
                 const SizedBox(height: 12),
                 if (!Platform.isIOS)
-                _SocialButton(
-                  label: 'Continuer avec Google',
-                  icon: Icons.g_mobiledata_rounded,
-                  onPressed: _isLoading ? null : _signInWithGoogle,
-                ).animate().fadeIn(delay: 400.ms),
+                  _SocialButton(
+                    label: 'Continuer avec Google',
+                    icon: Icons.g_mobiledata_rounded,
+                    onPressed: _isLoading ? null : _signInWithGoogle,
+                  ).animate().fadeIn(delay: 400.ms),
                 const SizedBox(height: 32),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

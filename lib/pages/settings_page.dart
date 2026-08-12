@@ -44,33 +44,33 @@ class SettingsScreen extends ConsumerWidget {
           ),
           if (_showChangePassword)
             _SettingsTile(
-            icon: Icons.lock_outlined,
-            title: context.tr('change_password'),
-            onTap: () async {
-              final email = Supabase.instance.client.auth.currentUser?.email;
-              if (email == null) return;
-              try {
-                await Supabase.instance.client.auth.resetPasswordForEmail(email);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(context.tr('email_sent')),
-                      backgroundColor: successColor,
-                    ),
-                  );
+              icon: Icons.lock_outlined,
+              title: context.tr('change_password'),
+              onTap: () async {
+                final email = Supabase.instance.client.auth.currentUser?.email;
+                if (email == null) return;
+                try {
+                  await Supabase.instance.client.auth.resetPasswordForEmail(email);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(context.tr('email_sent')),
+                        backgroundColor: successColor,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString()),
+                        backgroundColor: errorColor,
+                      ),
+                    );
+                  }
                 }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(e.toString()),
-                      backgroundColor: errorColor,
-                    ),
-                  );
-                }
-              }
-            },
-          ),
+              },
+            ),
 
           const Divider(),
           _SectionHeader(context.tr('appearance')),
@@ -172,12 +172,33 @@ class SettingsScreen extends ConsumerWidget {
               );
               if (confirm == true && context.mounted) {
                 try {
-                  final user = Supabase.instance.client.auth.currentUser;
+                  final supabase = Supabase.instance.client;
+                  final user = supabase.auth.currentUser;
                   if (user == null) return;
-                  // Ø­Ø°Ù ÙƒØ§Ù…Ù„: Ø¯Ø§Ù„Ø© SECURITY DEFINER ØªØ­Ø°Ù auth.users
-                  // ÙˆÙƒÙ„ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ØªØªØ¨Ø¹Ù‡Ø§ Ø¹Ø¨Ø± FK cascades (Ù…ØªØ·Ù„Ø¨ Apple 5.1.1)
-                  await Supabase.instance.client.rpc('delete_account');
-                  await Supabase.instance.client.auth.signOut();
+
+                  // خطوة 1: حذف ملفات Storage (الصورة الشخصية وغيرها) عبر
+                  // Storage API الصحيح — الحذف المباشر عبر SQL ممنوع من
+                  // Supabase (خطأ 42501)، لذا يجب أن يتم من هنا.
+                  try {
+                    final avatarFiles = await supabase.storage
+                        .from('avatars')
+                        .list(path: user.id);
+                    if (avatarFiles.isNotEmpty) {
+                      final paths = avatarFiles
+                          .map((f) => '${user.id}/${f.name}')
+                          .toList();
+                      await supabase.storage.from('avatars').remove(paths);
+                    }
+                  } catch (_) {
+                    // لا نمنع حذف الحساب إن لم توجد ملفات أو فشل الحذف
+                    // الجزئي لها — الحساب نفسه يبقى الأولوية.
+                  }
+
+                  // خطوة 2: حذف كامل للحساب (auth.users) — يُفعّل تلقائياً
+                  // حذف profiles وكل الجداول المرتبطة عبر FK cascades
+                  // (متطلب Apple 5.1.1).
+                  await supabase.rpc('delete_account');
+                  await supabase.auth.signOut();
                   if (context.mounted) context.go('/login');
                 } catch (e) {
                   if (context.mounted) {
@@ -200,7 +221,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// â”€â”€ Section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Section header ──────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader(this.title);
@@ -221,7 +242,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// â”€â”€ Generic settings tile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Generic settings tile ───────────────────────────────────────────────
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;

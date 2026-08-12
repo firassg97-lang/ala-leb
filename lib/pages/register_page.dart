@@ -302,7 +302,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPassCtrl.addListener(_onTextChanged);
     _nameCtrl.addListener(_onTextChanged);
     if (widget.oauthProvider != null) {
-      _authMethod = widget.oauthProvider!;
+      // الصيغة القادمة من login_page.dart: "apple|الاسم" أو "google|الاسم"
+      // أو "apple"/"google" فقط إن لم يتوفر اسم. نفصلهما هنا لتعبئة
+      // الحقل تلقائياً عندما يأتي المستخدم من مسار تسجيل الدخول مباشرة.
+      final parts = widget.oauthProvider!.split('|');
+      _authMethod = parts[0];
+      if (parts.length > 1 && parts[1].trim().isNotEmpty) {
+        _nameCtrl.text = parts[1].trim();
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _pageCtrl.jumpToPage(2);
         setState(() => _currentPage = 2);
